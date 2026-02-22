@@ -1,29 +1,59 @@
 'use client'
 
 import { addIncome } from './actions'
-import { useState } from 'react'
-import { ArrowDownCircle, CheckCircle2, AlertCircle } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { ArrowDownCircle, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react'
 
 const incomeSources = [
   'Salary',
+  'Home',
   'Freelance',
-  'Business',
-  'Investments',
-  'Gifts',
   'Other'
 ]
 
-const timeClassifications = [
-  'Morning',
-  'Afternoon',
-  'Evening',
-  'Night',
-  'Late Night'
-]
+// Sources that don't need time of day
+const noTimeSources = ['Salary', 'Home', 'Freelance']
+
+const timeClassifications = ['Morning', 'Afternoon', 'Evening', 'Night', 'Late Night']
 
 export default function AddIncomePage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [amount, setAmount] = useState('')
+  const [selectedSource, setSelectedSource] = useState('')
+  const [notes, setNotes] = useState('')
+  const formRef = useRef<HTMLFormElement>(null)
+
+  // Auto-detect current time period
+  const getDefaultTime = () => {
+    const hour = new Date().getHours()
+    if (hour >= 5 && hour < 12) return 'Morning'
+    if (hour >= 12 && hour < 17) return 'Afternoon'
+    if (hour >= 17 && hour < 21) return 'Evening'
+    if (hour >= 21 && hour < 24) return 'Night'
+    return 'Late Night'
+  }
+  const [timeOfDay, setTimeOfDay] = useState(getDefaultTime)
+
+  const quickAmounts = [500, 1000, 2000, 5000, 10000, 25000]
+
+  // Whether to show time of day selector
+  const showTimeOfDay = selectedSource && !noTimeSources.includes(selectedSource)
+
+  interface RecentIncome {
+    amount: string
+    source: string
+    date: string
+  }
+  const [recentIncomes, setRecentIncomes] = useState<RecentIncome[]>([])
+
+  function resetForm() {
+    setAmount('')
+    setSelectedSource('')
+    setTimeOfDay(getDefaultTime())
+    setNotes('')
+    setStatus('idle')
+  }
 
   async function handleSubmit(formData: FormData) {
     setStatus('loading')
@@ -33,21 +63,45 @@ export default function AddIncomePage() {
       setErrorMessage(result.error)
       setStatus('error')
     } else {
+      // Add to recent incomes
+      setRecentIncomes(prev => [
+        {
+          amount: amount,
+          source: selectedSource,
+          date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+        },
+        ...prev
+      ].slice(0, 5))
+
       setStatus('success')
-      // Reset form logic could go here
+      setTimeout(() => {
+        resetForm()
+      }, 1500)
     }
   }
 
+  const displayAmount = parseFloat(amount) || 0
+
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="bg-emerald-500/20 p-3 rounded-2xl">
-          <ArrowDownCircle className="w-8 h-8 text-emerald-400" />
+    <div className="max-w-2xl mx-auto pb-24">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <div className="bg-emerald-500/20 p-3 rounded-2xl">
+            <ArrowDownCircle className="w-8 h-8 text-emerald-400" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-white">Add Income</h1>
+            <p className="text-neutral-400">Record your earnings to keep your wallet updated.</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-white">Add Income</h1>
-          <p className="text-neutral-400">Record your earnings to keep your wallet updated.</p>
-        </div>
+        <button
+          type="button"
+          onClick={resetForm}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm font-medium hover:bg-neutral-700 hover:text-neutral-300 transition-all active:scale-95"
+        >
+          <RotateCcw className="w-4 h-4" />
+          Reset All
+        </button>
       </div>
 
       <div className="backdrop-blur-xl bg-neutral-900/60 border border-neutral-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
@@ -56,7 +110,7 @@ export default function AddIncomePage() {
         {status === 'success' && (
           <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-400">
              <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-             <p className="text-sm">Income added successfully!</p>
+             <p className="text-sm">Income added successfully! Resetting form...</p>
           </div>
         )}
 
@@ -67,35 +121,52 @@ export default function AddIncomePage() {
           </div>
         )}
 
-        <form action={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-300" htmlFor="amount">Amount (₹)</label>
-              <input
-                id="amount"
-                name="amount"
-                type="number"
-                step="0.01"
-                required
-                placeholder="0.00"
-                className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl py-3 px-4 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all font-mono text-lg"
-              />
-            </div>
+        {/* Big Amount Display */}
+        <div className="text-center mb-8 py-6 bg-neutral-950/50 rounded-2xl border border-neutral-800">
+          <p className="text-neutral-500 text-xs font-medium uppercase tracking-wider mb-2">Total Amount</p>
+          <p className={`text-5xl font-bold font-mono transition-colors ${displayAmount > 0 ? 'text-emerald-400' : 'text-neutral-600'}`}>
+            ₹{displayAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-300" htmlFor="source">Source</label>
-              <select
-                id="source"
-                name="source"
-                required
-                defaultValue=""
-                className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
-              >
-                <option value="" disabled>Select a source</option>
-                {incomeSources.map(source => (
-                  <option key={source} value={source}>{source}</option>
+        <form ref={formRef} action={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-neutral-300">Quick Add Amount</label>
+              <div className="flex flex-wrap gap-2">
+                {quickAmounts.map(preset => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setAmount(prev => String((parseFloat(prev) || 0) + preset))}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-all active:scale-95"
+                  >
+                    +₹{preset.toLocaleString('en-IN')}
+                  </button>
                 ))}
-              </select>
+                <button
+                  type="button"
+                  onClick={() => setAmount('')}
+                  className="px-3 py-1.5 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-400 text-xs font-semibold hover:bg-neutral-700 transition-all active:scale-95"
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="relative mt-2">
+                <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-emerald-400 font-bold text-xl pointer-events-none">₹</span>
+                <input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  step="0.01"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="Or type amount manually..."
+                  className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl py-3 pl-9 pr-4 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all font-mono text-lg"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -110,21 +181,57 @@ export default function AddIncomePage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-300" htmlFor="time_of_day">Time of Day</label>
-              <select
-                id="time_of_day"
-                name="time_of_day"
-                required
-                defaultValue=""
-                className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
-              >
-                <option value="" disabled>Select time</option>
-                {timeClassifications.map(time => (
-                  <option key={time} value={time}>{time}</option>
+            {/* Spacer */}
+            <div className="hidden md:block" />
+
+            {/* Hidden inputs */}
+            <input type="hidden" name="source" value={selectedSource} />
+            <input type="hidden" name="time_of_day" value={showTimeOfDay ? timeOfDay : 'N/A'} />
+
+            {/* Source - clickable pills */}
+            <div className="space-y-3 md:col-span-2">
+              <label className="text-sm font-medium text-neutral-300">Source of Income</label>
+              <div className="flex flex-wrap gap-2">
+                {incomeSources.map(source => (
+                  <button
+                    key={source}
+                    type="button"
+                    onClick={() => setSelectedSource(source)}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all active:scale-95 ${
+                      selectedSource === source
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                        : 'bg-neutral-950/50 border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-neutral-300'
+                    }`}
+                  >
+                    {source === 'Salary' ? '💰 Salary' : source === 'Home' ? '� Home' : source === 'Freelance' ? '� Freelance' : '📋 Other'}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
+
+            {/* Time of Day - only shown for Gifts & Other */}
+            {showTimeOfDay && (
+              <div className="space-y-3 md:col-span-2">
+                <label className="text-sm font-medium text-neutral-300">Time of Day</label>
+                <div className="flex flex-wrap gap-2">
+                  {timeClassifications.map(time => (
+                    <button
+                      key={time}
+                      type="button"
+                      onClick={() => setTimeOfDay(time)}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all active:scale-95 ${
+                        timeOfDay === time
+                          ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
+                          : 'bg-neutral-950/50 border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-neutral-300'
+                      }`}
+                    >
+                      {time === 'Morning' ? '🌅 Morning' : time === 'Afternoon' ? '☀️ Afternoon' : time === 'Evening' ? '🌆 Evening' : time === 'Night' ? '🌙 Night' : '🌃 Late Night'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
 
           <div className="space-y-2">
@@ -132,20 +239,53 @@ export default function AddIncomePage() {
             <textarea
               id="notes"
               name="notes"
-              rows={3}
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="Any details about this income..."
               className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl py-3 px-4 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all resize-none"
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={status === 'loading'}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold py-4 px-4 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {status === 'loading' ? 'Saving...' : 'Add Income'}
-          </button>
+          <div className="hidden">
+            <button type="submit" id="hidden-submit">Submit</button>
+          </div>
         </form>
+      </div>
+
+      {/* Recent Incomes */}
+      {recentIncomes.length > 0 && (
+        <div className="mt-6 backdrop-blur-xl bg-neutral-900/60 border border-neutral-800 rounded-3xl p-6 shadow-2xl">
+          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-4">Recently Added</h3>
+          <div className="space-y-3">
+            {recentIncomes.map((inc, i) => (
+              <div key={i} className="flex items-center justify-between py-3 px-4 rounded-xl bg-neutral-950/50 border border-neutral-800">
+                <div>
+                  <p className="text-sm font-medium text-white">{inc.source}</p>
+                  <p className="text-xs text-neutral-500">{inc.date}</p>
+                </div>
+                <p className="text-emerald-400 font-mono font-semibold">+₹{parseFloat(inc.amount).toLocaleString('en-IN')}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sticky Submit Button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent z-50 md:pl-72">
+        <div className="max-w-2xl mx-auto">
+          <button
+            type="button"
+            disabled={status === 'loading'}
+            onClick={() => {
+              const form = formRef.current
+              if (form) form.requestSubmit()
+            }}
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold py-4 px-4 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+          >
+            {status === 'loading' ? 'Saving...' : `Add Income${displayAmount > 0 ? ` — ₹${displayAmount.toLocaleString('en-IN')}` : ''}`}
+          </button>
+        </div>
       </div>
     </div>
   )
