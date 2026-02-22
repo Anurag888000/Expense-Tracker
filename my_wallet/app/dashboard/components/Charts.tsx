@@ -37,7 +37,7 @@ export function ExpensePieChart({ data }: { data: CategoryData[] }) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height={350}>
       <PieChart>
         <Pie
           data={data}
@@ -66,7 +66,7 @@ export function ExpensePieChart({ data }: { data: CategoryData[] }) {
 
 export function IncomeExpenseBarChart({ data }: { data: IncomeExpenseData[] }) {
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height={350}>
       <BarChart
         data={data}
         margin={{

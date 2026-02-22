@@ -26,6 +26,15 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+
+  const displayName = profile?.full_name || user.email
+  const initial = displayName ? displayName.charAt(0).toUpperCase() : 'U'
+
   return (
     <div className="min-h-screen bg-neutral-950 flex text-white font-sans selection:bg-emerald-500/30">
       {/* Sidebar */}
@@ -81,10 +90,10 @@ export default async function DashboardLayout({
            <h2 className="text-xl font-semibold px-2 text-white">Overview</h2>
            <div className="flex items-center gap-4 pr-2">
              <div className="text-sm text-neutral-400">
-                {user.email}
+                {displayName}
              </div>
              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-sm font-bold shadow-lg">
-                {user.email?.charAt(0).toUpperCase()}
+                {initial}
              </div>
            </div>
         </header>
