@@ -1,8 +1,8 @@
 'use client'
 
-import { addIncome } from './actions'
-import { useState, useRef } from 'react'
-import { ArrowDownCircle, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react'
+import { addIncome, getRecentIncomes, deleteIncome } from './actions'
+import { useState, useRef, useEffect } from 'react'
+import { ArrowDownCircle, CheckCircle2, AlertCircle, RotateCcw, Trash2, Loader2 } from 'lucide-react'
 
 const incomeSources = [
   'Salary',
@@ -22,6 +22,7 @@ export default function AddIncomePage() {
   const [amount, setAmount] = useState('')
   const [selectedSource, setSelectedSource] = useState('')
   const [notes, setNotes] = useState('')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
 
   // Auto-detect current time period
@@ -40,12 +41,25 @@ export default function AddIncomePage() {
   // Whether to show time of day selector
   const showTimeOfDay = selectedSource && !noTimeSources.includes(selectedSource)
 
+  // Recent incomes from DB
   interface RecentIncome {
-    amount: string
+    id: string
+    amount: number
     source: string
     date: string
   }
   const [recentIncomes, setRecentIncomes] = useState<RecentIncome[]>([])
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Fetch recent incomes from DB on mount and after add/delete
+  async function loadRecent() {
+    const result = await getRecentIncomes()
+    setRecentIncomes(result.data)
+  }
+
+  useEffect(() => {
+    loadRecent()
+  }, [])
 
   function resetForm() {
     setAmount('')
@@ -53,6 +67,7 @@ export default function AddIncomePage() {
     setTimeOfDay(getDefaultTime())
     setNotes('')
     setStatus('idle')
+    setShowResetConfirm(false)
   }
 
   async function handleSubmit(formData: FormData) {
@@ -63,21 +78,21 @@ export default function AddIncomePage() {
       setErrorMessage(result.error)
       setStatus('error')
     } else {
-      // Add to recent incomes
-      setRecentIncomes(prev => [
-        {
-          amount: amount,
-          source: selectedSource,
-          date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-        },
-        ...prev
-      ].slice(0, 5))
-
       setStatus('success')
+      await loadRecent()
       setTimeout(() => {
         resetForm()
       }, 1500)
     }
+  }
+
+  async function handleDelete(id: string) {
+    setDeletingId(id)
+    const result = await deleteIncome(id)
+    if (!result.error) {
+      await loadRecent()
+    }
+    setDeletingId(null)
   }
 
   const displayAmount = parseFloat(amount) || 0
@@ -96,13 +111,44 @@ export default function AddIncomePage() {
         </div>
         <button
           type="button"
-          onClick={resetForm}
+          onClick={() => {
+            if (amount || selectedSource || notes) {
+              setShowResetConfirm(true)
+            } else {
+              resetForm()
+            }
+          }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm font-medium hover:bg-neutral-700 hover:text-neutral-300 transition-all active:scale-95"
         >
           <RotateCcw className="w-4 h-4" />
           Reset All
         </button>
       </div>
+
+      {/* Reset Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowResetConfirm(false)} />
+          <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-semibold text-white mb-2">Reset Form?</h3>
+            <p className="text-sm text-neutral-400 mb-6">This will clear all fields. Are you sure?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-neutral-700 text-neutral-300 text-sm font-medium hover:bg-neutral-800 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={resetForm}
+                className="flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/30 transition-all"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="backdrop-blur-xl bg-neutral-900/60 border border-neutral-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 to-green-500 opacity-50" />
@@ -203,10 +249,23 @@ export default function AddIncomePage() {
                         : 'bg-neutral-950/50 border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-neutral-300'
                     }`}
                   >
-                    {source === 'Salary' ? '💰 Salary' : source === 'Home' ? '� Home' : source === 'Freelance' ? '� Freelance' : '📋 Other'}
+                    {source === 'Salary' ? '💰 Salary' : source === 'Home' ? '🏠 Home' : source === 'Freelance' ? '💻 Freelance' : '📋 Other'}
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-300">Make Recurring?</label>
+              <select
+                name="frequency"
+                className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all font-medium"
+              >
+                <option value="None">None (One-time)</option>
+                <option value="Weekly">Weekly</option>
+                <option value="Monthly">Monthly</option>
+                <option value="Yearly">Yearly</option>
+              </select>
             </div>
 
             {/* Time of Day - only shown for Gifts & Other */}
@@ -253,18 +312,35 @@ export default function AddIncomePage() {
         </form>
       </div>
 
-      {/* Recent Incomes */}
+      {/* Recent Incomes from DB */}
       {recentIncomes.length > 0 && (
         <div className="mt-6 backdrop-blur-xl bg-neutral-900/60 border border-neutral-800 rounded-3xl p-6 shadow-2xl">
-          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-4">Recently Added</h3>
+          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-4">Recent Incomes</h3>
           <div className="space-y-3">
-            {recentIncomes.map((inc, i) => (
-              <div key={i} className="flex items-center justify-between py-3 px-4 rounded-xl bg-neutral-950/50 border border-neutral-800">
+            {recentIncomes.map((inc) => (
+              <div key={inc.id} className="flex items-center justify-between py-3 px-4 rounded-xl bg-neutral-950/50 border border-neutral-800 group">
                 <div>
                   <p className="text-sm font-medium text-white">{inc.source}</p>
-                  <p className="text-xs text-neutral-500">{inc.date}</p>
+                  <p className="text-xs text-neutral-500">
+                    {new Date(inc.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </p>
                 </div>
-                <p className="text-emerald-400 font-mono font-semibold">+₹{parseFloat(inc.amount).toLocaleString('en-IN')}</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-emerald-400 font-mono font-semibold">+₹{Number(inc.amount).toLocaleString('en-IN')}</p>
+                  <button
+                    type="button"
+                    disabled={deletingId === inc.id}
+                    onClick={() => handleDelete(inc.id)}
+                    className="p-1.5 rounded-lg text-neutral-600 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                    title="Delete"
+                  >
+                    {deletingId === inc.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

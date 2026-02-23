@@ -1,0 +1,24 @@
+{
+  "name": "MyWallet | Expense Tracker",
+  "short_name": "MyWallet",
+  "description": "Track your income, expenses, and savings goals seamlessly.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#10b981",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ]
+}

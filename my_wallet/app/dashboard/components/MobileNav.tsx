@@ -45,12 +45,12 @@ export default function MobileNav() {
       {/* Sidebar */}
       <aside className="absolute inset-y-0 left-0 w-72 bg-neutral-950 border-r border-neutral-800 flex flex-col animate-slide-in shadow-2xl shadow-black">
         <div className="p-6 flex items-center justify-between border-b border-neutral-800">
-          <div className="flex items-center gap-3">
+          <Link href="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 hover:opacity-80 transition-opacity relative z-10">
             <div className="bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20">
               <Wallet className="w-6 h-6 text-emerald-400" />
             </div>
             <span className="font-bold tracking-wide text-lg text-white">MyWallet</span>
-          </div>
+          </Link>
           <button
             onClick={() => setIsOpen(false)}
             className="p-2 rounded-xl hover:bg-neutral-800 text-neutral-400"
