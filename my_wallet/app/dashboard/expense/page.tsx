@@ -10,7 +10,7 @@ const categoriesAndSub = {
   '🌍 Outside Travel': ['Metro card recharge', 'Metro ticket', 'Auto / Bike', 'Cab (Ola, Uber)', 'Bus ticket', 'Train ticket', 'Other'],
   '🎬 Entertainment': ['Movie', 'Events'],
   '🛒 Shopping': ['Online shopping', 'Offline shopping'],
-  '💡 Utilities': ['Electricity', 'Rent', 'Wifi', 'Mobile recharge'],
+  '💡 Utilities': ['Electricity', 'Rent', 'Wifi', 'Mobile recharge', 'Water'],
   '🏥 Health': ['Medicine', 'Doctor visit'],
   '📚 Education': ['Books', 'Courses']
 }
