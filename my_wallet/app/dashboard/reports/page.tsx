@@ -58,23 +58,23 @@ export default async function ReportsPage({
     periodLabel = new Date(targetDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   }
 
-  // Fetch incomes
-  const { data: incomes } = await supabase
-    .from('incomes')
-    .select('*')
-    .eq('user_id', user.id)
-    .gte('date', startDate)
-    .lte('date', endDate)
-    .order('date', { ascending: false })
-
-  // Fetch expenses
-  const { data: expenses } = await supabase
-    .from('expenses')
-    .select('*')
-    .eq('user_id', user.id)
-    .gte('date', startDate)
-    .lte('date', endDate)
-    .order('date', { ascending: false })
+  // Fetch incomes and expenses in parallel with specific fields
+  const [{ data: incomes }, { data: expenses }] = await Promise.all([
+    supabase
+      .from('incomes')
+      .select('id, amount, source, date, time_of_day, notes')
+      .eq('user_id', user.id)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: false }),
+    supabase
+      .from('expenses')
+      .select('id, amount, category, sub_category, payment_method, time_of_day, place, date, notes')
+      .eq('user_id', user.id)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: false }),
+  ])
 
   const totalIncome = incomes?.reduce((sum, item) => sum + Number(item.amount), 0) || 0
   const totalExpense = expenses?.reduce((sum, item) => sum + Number(item.amount), 0) || 0

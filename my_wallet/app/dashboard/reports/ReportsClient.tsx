@@ -3,14 +3,35 @@
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Wallet, CalendarDays } from 'lucide-react'
 
+interface Income {
+  id: string
+  amount: number
+  source: string
+  date: string
+  time_of_day: string
+  notes: string | null
+}
+
+interface Expense {
+  id: string
+  amount: number
+  category: string
+  sub_category: string | null
+  payment_method: string
+  time_of_day: string
+  place: string
+  date: string
+  notes: string | null
+}
+
 interface ReportsClientProps {
   view: string
   periodLabel: string
   totalIncome: number
   totalExpense: number
   netSavings: number
-  incomes: any[]
-  expenses: any[]
+  incomes: Income[]
+  expenses: Expense[]
   categoryBreakdown: { name: string; value: number }[]
   sourceBreakdown: { name: string; value: number }[]
   prevDateParam: string

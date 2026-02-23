@@ -62,7 +62,7 @@ export default async function SettingsPage(props: { searchParams: Promise<{ prof
                   name="full_name"
                   type="text"
                   required
-                  defaultValue={profile?.full_name || ''}
+                  defaultValue={profile?.full_name || user.user_metadata?.full_name || ''}
                   placeholder="John Doe"
                   className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl py-3 pl-10 pr-4 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500/50 focus:border-neutral-500 transition-all"
                 />

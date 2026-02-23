@@ -1,8 +1,8 @@
 'use client'
 
-import { addExpense } from './actions'
+import { addExpense, getRecentExpenses, deleteExpense } from './actions'
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { ArrowUpCircle, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react'
+import { ArrowUpCircle, CheckCircle2, AlertCircle, RotateCcw, Trash2, Loader2 } from 'lucide-react'
 
 const categoriesAndSub = {
   '🍔 Food': ['Buy grocery', 'Eat fast food', 'Eat healthy food', 'Breakfast', 'Lunch', 'Dinner'],
@@ -31,9 +31,10 @@ const timeClassifications = ['Morning', 'Afternoon', 'Evening', 'Night', 'Late N
 const places = ['Home', 'Office', 'Outside']
 
 interface RecentExpense {
-  amount: string
+  id: string
+  amount: number
   category: string
-  sub_category: string
+  sub_category: string | null
   date: string
 }
 
@@ -46,7 +47,9 @@ export default function AddExpensePage() {
   const [paymentMethod, setPaymentMethod] = useState('UPI')
   const [selectedPlace, setSelectedPlace] = useState('Outside')
   const [notes, setNotes] = useState('')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [recentExpenses, setRecentExpenses] = useState<RecentExpense[]>([])
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
   // Auto-detect current time period
@@ -66,6 +69,16 @@ export default function AddExpensePage() {
     if (!selectedCategory) return []
     return categoriesAndSub[selectedCategory as keyof typeof categoriesAndSub] || []
   }, [selectedCategory])
+
+  // Fetch recent expenses from DB
+  async function loadRecent() {
+    const result = await getRecentExpenses()
+    setRecentExpenses(result.data)
+  }
+
+  useEffect(() => {
+    loadRecent()
+  }, [])
 
   function handleCategoryChange(cat: string) {
     setSelectedCategory(cat)
@@ -89,6 +102,7 @@ export default function AddExpensePage() {
     setSelectedPlace('Outside')
     setNotes('')
     setStatus('idle')
+    setShowResetConfirm(false)
   }
 
   async function handleSubmit(formData: FormData) {
@@ -99,23 +113,21 @@ export default function AddExpensePage() {
       setErrorMessage(result.error)
       setStatus('error')
     } else {
-      // Add to recent expenses
-      setRecentExpenses(prev => [
-        {
-          amount: amount,
-          category: selectedCategory,
-          sub_category: selectedSubCategory,
-          date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-        },
-        ...prev
-      ].slice(0, 5))
-      
       setStatus('success')
-      // Auto-reset form after a short delay
+      await loadRecent()
       setTimeout(() => {
         resetForm()
       }, 1500)
     }
+  }
+
+  async function handleDelete(id: string) {
+    setDeletingId(id)
+    const result = await deleteExpense(id)
+    if (!result.error) {
+      await loadRecent()
+    }
+    setDeletingId(null)
   }
 
   // Format amount for display
@@ -133,16 +145,46 @@ export default function AddExpensePage() {
             <p className="text-neutral-400">Track where your money is going.</p>
           </div>
         </div>
-        {/* Reset all button */}
         <button
           type="button"
-          onClick={resetForm}
+          onClick={() => {
+            if (amount || selectedCategory || notes) {
+              setShowResetConfirm(true)
+            } else {
+              resetForm()
+            }
+          }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm font-medium hover:bg-neutral-700 hover:text-neutral-300 transition-all active:scale-95"
         >
           <RotateCcw className="w-4 h-4" />
           Reset All
         </button>
       </div>
+
+      {/* Reset Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowResetConfirm(false)} />
+          <div className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-semibold text-white mb-2">Reset Form?</h3>
+            <p className="text-sm text-neutral-400 mb-6">This will clear all fields. Are you sure?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-neutral-700 text-neutral-300 text-sm font-medium hover:bg-neutral-800 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={resetForm}
+                className="flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/30 transition-all"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="backdrop-blur-xl bg-neutral-900/60 border border-neutral-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-500 to-orange-500 opacity-50" />
@@ -334,6 +376,20 @@ export default function AddExpensePage() {
                  ))}
                </div>
             </div>
+
+            <div className="space-y-2 md:col-span-2 border-t border-neutral-800 pt-6 mt-2">
+              <label className="text-sm font-medium text-neutral-300">Make Recurring?</label>
+              <select
+                name="frequency"
+                className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all font-medium"
+              >
+                <option value="None">None (One-time)</option>
+                <option value="Weekly">Weekly</option>
+                <option value="Monthly">Monthly</option>
+                <option value="Yearly">Yearly</option>
+              </select>
+              <p className="text-xs text-neutral-500 mt-1">If selected, this expense will automatically repeat on your dashboard.</p>
+            </div>
             
           </div>
 
@@ -350,28 +406,44 @@ export default function AddExpensePage() {
             />
           </div>
 
-          {/* Submit is now in the sticky bar at bottom */}
           <div className="hidden">
             <button type="submit" id="hidden-submit">Submit</button>
           </div>
         </form>
       </div>
 
-      {/* Recent Expenses */}
+      {/* Recent Expenses from DB */}
       {recentExpenses.length > 0 && (
         <div className="mt-6 backdrop-blur-xl bg-neutral-900/60 border border-neutral-800 rounded-3xl p-6 shadow-2xl">
-          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-4">Recently Added</h3>
+          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-4">Recent Expenses</h3>
           <div className="space-y-3">
-            {recentExpenses.map((exp, i) => (
-              <div key={i} className="flex items-center justify-between py-3 px-4 rounded-xl bg-neutral-950/50 border border-neutral-800">
+            {recentExpenses.map((exp) => (
+              <div key={exp.id} className="flex items-center justify-between py-3 px-4 rounded-xl bg-neutral-950/50 border border-neutral-800 group">
                 <div className="flex items-center gap-3">
                   <span className="text-lg">{exp.category.split(' ')[0]}</span>
                   <div>
                     <p className="text-sm font-medium text-white">{exp.sub_category || exp.category}</p>
-                    <p className="text-xs text-neutral-500">{exp.date}</p>
+                    <p className="text-xs text-neutral-500">
+                      {new Date(exp.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </p>
                   </div>
                 </div>
-                <p className="text-red-400 font-mono font-semibold">-₹{parseFloat(exp.amount).toLocaleString('en-IN')}</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-red-400 font-mono font-semibold">-₹{Number(exp.amount).toLocaleString('en-IN')}</p>
+                  <button
+                    type="button"
+                    disabled={deletingId === exp.id}
+                    onClick={() => handleDelete(exp.id)}
+                    className="p-1.5 rounded-lg text-neutral-600 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                    title="Delete"
+                  >
+                    {deletingId === exp.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

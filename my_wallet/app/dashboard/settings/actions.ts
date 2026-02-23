@@ -11,7 +11,7 @@ export async function updateProfile(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    throw new Error('User not found')
+    redirect('/login')
   }
 
   const fullName = formData.get('full_name') as string
@@ -37,7 +37,7 @@ export async function updatePasswordSettings(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    throw new Error('User not found')
+    redirect('/login')
   }
 
   const currentPassword = formData.get('current_password') as string

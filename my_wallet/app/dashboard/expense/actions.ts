@@ -11,30 +11,48 @@ export async function addExpense(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    throw new Error('User not found')
+    return { error: 'Not authenticated. Please sign in again.' }
   }
 
-  const rawFormData = {
-    amount: formData.get('amount'),
-    category: formData.get('category'),
-    sub_category: formData.get('sub_category'),
-    payment_method: formData.get('payment_method'),
-    time_of_day: formData.get('time_of_day'),
-    place: formData.get('place'),
-    date: formData.get('date'),
-    notes: formData.get('notes'),
+  const rawAmount = formData.get('amount') as string
+  const category = (formData.get('category') as string || '').trim()
+  const subCategory = (formData.get('sub_category') as string || '').trim()
+  const paymentMethod = (formData.get('payment_method') as string || '').trim()
+  const timeOfDay = formData.get('time_of_day') as string
+  const place = (formData.get('place') as string || '').trim()
+  const date = formData.get('date') as string
+  const notes = (formData.get('notes') as string || '').trim()
+  const frequency = formData.get('frequency') as string || 'None'
+
+  // Validation
+  const amount = parseFloat(rawAmount)
+  if (isNaN(amount) || amount <= 0) {
+    return { error: 'Amount must be a positive number.' }
   }
 
+  if (!category) {
+    return { error: 'Please select a category.' }
+  }
+
+  if (!paymentMethod) {
+    return { error: 'Please select a payment method.' }
+  }
+
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { error: 'Please select a valid date.' }
+  }
+
+  // Insert the current transaction
   const { error } = await supabase.from('expenses').insert({
     user_id: user.id,
-    amount: parseFloat(rawFormData.amount as string),
-    category: rawFormData.category as string,
-    sub_category: rawFormData.sub_category as string || null,
-    payment_method: rawFormData.payment_method as string,
-    time_of_day: rawFormData.time_of_day as string,
-    place: rawFormData.place as string,
-    date: rawFormData.date as string,
-    notes: rawFormData.notes as string || null,
+    amount,
+    category,
+    sub_category: subCategory || null,
+    payment_method: paymentMethod,
+    time_of_day: timeOfDay || 'N/A',
+    place: place || 'Outside',
+    date,
+    notes: notes || null,
   })
 
   if (error) {
@@ -42,6 +60,90 @@ export async function addExpense(formData: FormData) {
     return { error: error.message }
   }
 
+  // Insert recurring template if selected
+  if (frequency !== 'None') {
+    // Calculate the next date using UTC to avoid timezone issues and handle end-of-month correctly
+    const [y, m, d] = date.split('-').map(Number)
+    let nextDate: Date
+
+    if (frequency === 'Weekly') {
+      nextDate = new Date(Date.UTC(y, m - 1, d + 7))
+    } else if (frequency === 'Monthly') {
+      // `m` is 1-indexed from the date string (e.g. "2024-01-31" → m=1).
+      // Date.UTC expects 0-indexed months, so next month in 0-indexed = (m-1)+1 = m.
+      // Clamp day to last day of next month to avoid overflow (e.g. Jan 31 → Feb 28).
+      const nextMonth = m // next month, 0-indexed for Date.UTC
+      const lastDayOfNextMonth = new Date(Date.UTC(y, nextMonth + 1, 0)).getUTCDate()
+      nextDate = new Date(Date.UTC(y, nextMonth, Math.min(d, lastDayOfNextMonth)))
+    } else {
+      nextDate = new Date(Date.UTC(y + 1, m - 1, d))
+    }
+
+    const { error: recurError } = await supabase.from('recurring_transactions').insert({
+      user_id: user.id,
+      type: 'expense',
+      amount,
+      category,
+      sub_category: subCategory || null,
+      payment_method: paymentMethod,
+      time_of_day: timeOfDay || 'N/A',
+      place: place || 'Outside',
+      notes: notes || null,
+      frequency: frequency.toLowerCase(),
+      next_date: nextDate.toISOString().split('T')[0]
+    })
+
+    if (recurError) console.error('Error setting up recurring expense:', recurError)
+  }
+
   revalidatePath('/dashboard')
+  revalidatePath('/dashboard/history')
+  revalidatePath('/dashboard/reports')
+  revalidatePath('/dashboard/goals')
+  return { success: true }
+}
+
+export async function getRecentExpenses() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { data: [] }
+
+  const { data } = await supabase
+    .from('expenses')
+    .select('id, amount, category, sub_category, date')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  return { data: data || [] }
+}
+
+export async function deleteExpense(id: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Not authenticated.' }
+
+  const { error } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error('Error deleting expense:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/reports')
+  revalidatePath('/dashboard/goals')
   return { success: true }
 }
