@@ -24,6 +24,7 @@ export default function AddIncomePage() {
   const [notes, setNotes] = useState('')
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Auto-detect current time period
   const getDefaultTime = () => {
@@ -59,7 +60,20 @@ export default function AddIncomePage() {
 
   useEffect(() => {
     loadRecent()
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    }
   }, [])
+
+  // Close reset confirmation modal on Escape key press
+  useEffect(() => {
+    if (!showResetConfirm) return
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowResetConfirm(false)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showResetConfirm])
 
   function resetForm() {
     setAmount('')
@@ -80,7 +94,7 @@ export default function AddIncomePage() {
     } else {
       setStatus('success')
       await loadRecent()
-      setTimeout(() => {
+      resetTimerRef.current = setTimeout(() => {
         resetForm()
       }, 1500)
     }
