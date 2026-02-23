@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { 
   Wallet, 
   LayoutDashboard, 
@@ -13,10 +14,24 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  History,
+  Repeat
 } from 'lucide-react'
 
+const navItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, hoverClass: 'hover:bg-neutral-800/50 hover:text-white' , activeClass: 'bg-neutral-800/70 text-white' },
+  { href: '/dashboard/income', label: 'Add Income', icon: ArrowDownCircle, hoverClass: 'hover:bg-emerald-500/10 hover:text-emerald-400', activeClass: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' },
+  { href: '/dashboard/expense', label: 'Add Expense', icon: ArrowUpCircle, hoverClass: 'hover:bg-red-500/10 hover:text-red-400', activeClass: 'bg-red-500/15 text-red-400 border-red-500/20' },
+  { href: '/dashboard/goals', label: 'Goals', icon: Target, hoverClass: 'hover:bg-purple-500/10 hover:text-purple-400', activeClass: 'bg-purple-500/15 text-purple-400 border-purple-500/20' },
+  { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, hoverClass: 'hover:bg-amber-500/10 hover:text-amber-400', activeClass: 'bg-amber-500/15 text-amber-400 border-amber-500/20' },
+  { href: '/dashboard/history', label: 'History', icon: History, hoverClass: 'hover:bg-blue-500/10 hover:text-blue-400', activeClass: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
+  { href: '/dashboard/recurring', label: 'Recurring', icon: Repeat, hoverClass: 'hover:bg-indigo-500/10 hover:text-indigo-400', activeClass: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/20' },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings, hoverClass: 'hover:bg-neutral-800/50 hover:text-white', activeClass: 'bg-neutral-800/70 text-white' },
+]
+
 export default function MobileNav() {
+  const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
@@ -60,30 +75,28 @@ export default function MobileNav() {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-          <Link href="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-800/50 text-neutral-300 hover:text-white transition-colors">
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="font-medium">Dashboard</span>
-          </Link>
-          <Link href="/dashboard/income" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-400 text-neutral-300 transition-colors">
-            <ArrowDownCircle className="w-5 h-5" />
-            <span className="font-medium">Add Income</span>
-          </Link>
-          <Link href="/dashboard/expense" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-500/10 hover:text-red-400 text-neutral-300 transition-colors">
-            <ArrowUpCircle className="w-5 h-5" />
-            <span className="font-medium">Add Expense</span>
-          </Link>
-          <Link href="/dashboard/goals" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-purple-500/10 hover:text-purple-400 text-neutral-300 transition-colors">
-            <Target className="w-5 h-5" />
-            <span className="font-medium">Goals</span>
-          </Link>
-          <Link href="/dashboard/reports" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-amber-500/10 hover:text-amber-400 text-neutral-300 transition-colors">
-            <BarChart3 className="w-5 h-5" />
-            <span className="font-medium">Reports</span>
-          </Link>
-          <Link href="/dashboard/settings" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-800/50 text-neutral-300 hover:text-white transition-colors">
-            <Settings className="w-5 h-5" />
-            <span className="font-medium">Settings</span>
-          </Link>
+          {navItems.map((item) => {
+            const isActive = item.href === '/dashboard'
+              ? pathname === '/dashboard'
+              : pathname.startsWith(item.href)
+            const Icon = item.icon
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-colors border border-transparent ${
+                  isActive
+                    ? item.activeClass
+                    : `text-neutral-300 ${item.hoverClass}`
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
         </nav>
 
         <div className="p-4 border-t border-neutral-800">
