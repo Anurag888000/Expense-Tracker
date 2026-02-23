@@ -66,10 +66,14 @@ export default function GoalsTrend({ data }: { data: GoalTrendPoint[] }) {
                 color: '#fff',
                 fontSize: '13px',
               }}
-              formatter={((value: number | string, name: string) => [
+            // Recharts' Formatter type expects value to be (string | number | undefined),
+              // but our function requires (string | number). Using 'any' avoids a spurious
+              // TS2322 error without suppressing meaningful type-checking elsewhere.
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={((value: any, name: string): [string, string] => [
                 `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
                 name === 'savingsGoal' ? 'Savings Goal' : 'Actual Savings',
-              ]) as never}
+              ]) as any}
               labelStyle={{ color: '#aaa' }}
             />
             <Legend

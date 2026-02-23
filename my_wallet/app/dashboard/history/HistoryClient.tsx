@@ -372,6 +372,7 @@ export default function HistoryClient({ initialTransactions }: { initialTransact
                     <label className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Sub Category</label>
                     <select 
                       name="sub_category" 
+                      key={editingTx.category}
                       defaultValue={editingTx.sub_category || ''} 
                       className="w-full bg-neutral-950 border border-neutral-800 rounded-xl py-2 px-3 text-white focus:outline-none focus:border-blue-500"
                     >

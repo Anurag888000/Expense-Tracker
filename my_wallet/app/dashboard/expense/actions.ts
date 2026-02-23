@@ -62,13 +62,22 @@ export async function addExpense(formData: FormData) {
 
   // Insert recurring template if selected
   if (frequency !== 'None') {
-    // Calculate the next date
-    const currentDate = new Date(date)
-    let nextDate = new Date(currentDate)
-    
-    if (frequency === 'Weekly') nextDate.setDate(currentDate.getDate() + 7)
-    else if (frequency === 'Monthly') nextDate.setMonth(currentDate.getMonth() + 1)
-    else if (frequency === 'Yearly') nextDate.setFullYear(currentDate.getFullYear() + 1)
+    // Calculate the next date using UTC to avoid timezone issues and handle end-of-month correctly
+    const [y, m, d] = date.split('-').map(Number)
+    let nextDate: Date
+
+    if (frequency === 'Weekly') {
+      nextDate = new Date(Date.UTC(y, m - 1, d + 7))
+    } else if (frequency === 'Monthly') {
+      // `m` is 1-indexed from the date string (e.g. "2024-01-31" → m=1).
+      // Date.UTC expects 0-indexed months, so next month in 0-indexed = (m-1)+1 = m.
+      // Clamp day to last day of next month to avoid overflow (e.g. Jan 31 → Feb 28).
+      const nextMonth = m // next month, 0-indexed for Date.UTC
+      const lastDayOfNextMonth = new Date(Date.UTC(y, nextMonth + 1, 0)).getUTCDate()
+      nextDate = new Date(Date.UTC(y, nextMonth, Math.min(d, lastDayOfNextMonth)))
+    } else {
+      nextDate = new Date(Date.UTC(y + 1, m - 1, d))
+    }
 
     const { error: recurError } = await supabase.from('recurring_transactions').insert({
       user_id: user.id,

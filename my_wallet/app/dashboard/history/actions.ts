@@ -28,6 +28,9 @@ export async function getTransactions(limit = 100) {
 
   if (!user) return { data: [], error: 'Not authenticated' }
 
+  // Cap limit to prevent excessively large fetches
+  const safeLimit = Math.min(Math.max(1, limit), 1000)
+
   const [{ data: incomes, error: incomesError }, { data: expenses, error: expensesError }] = await Promise.all([
     supabase
       .from('incomes')
@@ -35,14 +38,14 @@ export async function getTransactions(limit = 100) {
       .eq('user_id', user.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(limit),
+      .limit(safeLimit),
     supabase
       .from('expenses')
       .select('*')
       .eq('user_id', user.id)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(limit),
+      .limit(safeLimit),
   ])
 
   if (incomesError || expensesError) {
@@ -85,7 +88,7 @@ export async function getTransactions(limit = 100) {
   // Since we fetch `limit` from both, then combine, we might have 2x `limit` items
   // which we need to trim back down, or just return them all.
   // Returning all up to combined limit is simpler for the UI.
-  return { data: allTransactions.slice(0, limit) }
+  return { data: allTransactions.slice(0, safeLimit) }
 }
 
 export async function deleteTransaction(type: TransactionType, id: string) {

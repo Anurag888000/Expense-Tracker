@@ -19,8 +19,12 @@ export default async function DashboardPage() {
 
   if (!user) return null
 
-  // Trigger lazy processing of recurring transactions for this user.
-  processRecurringTransactions()
+  // Process any due recurring transactions before rendering the dashboard.
+  try {
+    await processRecurringTransactions()
+  } catch (error) {
+    console.error('Failed to process recurring transactions for dashboard:', error)
+  }
 
   // Current month date range
   const today = new Date()
